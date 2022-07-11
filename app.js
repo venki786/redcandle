@@ -7,6 +7,10 @@ import WebSocket from "ws";
 
 dotenv.config();
 
+const LOSS_P_VALUE = 1.25;
+const PROFIT_VALUE = 2.25;
+const QUANTITY = 50;
+
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
@@ -263,12 +267,11 @@ async function run() {
                 };
             }
             if (ob.trantype === "S") {
-                sellOrders[ob.norenordno] = { ...calSL(Number(ob.prc), 1.25), tsym: ob.tsym, quantity: ob.qty };
+                sellOrders[ob.norenordno] = { ...calSL(Number(ob.prc), LOSS_P_VALUE), tsym: ob.tsym, quantity: ob.qty };
             }
         }
     });
     console.log("init", pendingOrders, sellOrders);
-
 
     await fv.streaming();
     fv.ws.onmessage = (evt) => {
@@ -296,12 +299,12 @@ async function run() {
                 }
 
                 if (result.trantype === "S") {
-                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), 1.25), tsym: result.tsym, quantity: result.qty };
+                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
             }
             if(result.reporttype === "Replaced") {
                 if (result.trantype === "S") {
-                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), 1.25), tsym: result.tsym, quantity: result.qty };
+                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
             }
             if (result.reporttype === "Fill") {
@@ -311,7 +314,7 @@ async function run() {
                     fv.place_order({
                         symbol: result.tsym,
                         quantity: result.qty,
-                        price: String(Number(result.flprc) + 2),
+                        price: String(Number(result.flprc) + Number(PROFIT_VALUE)),
                         trantype: "S"
                     }).catch(console.error)
 
@@ -379,8 +382,8 @@ async function run() {
                 lastSec = cSec;
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
-                    quantity: "50",
-                    price: String(tick.LTP) //tick.Ask
+                    quantity: String(QUANTITY),
+                    price: String(tick.Ask) //tick.Ask
                 }).catch(console.error)
             }
             lastSec = cSec;
@@ -389,7 +392,7 @@ async function run() {
             try {
                 Object.keys(sellOrders).map(so => {
                     const order = sellOrders[so];
-                    if (tick.LTP <= (Number(order.v) - 2)) {
+                    if (tick.LTP <= (Number(order.v) - Number(PROFIT_VALUE))) {
                         console.log("Modify", tick.LTP, order.v, so, order.sl, order.tsym)
                         fv.modify_order({
                             orderno: so,
