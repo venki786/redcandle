@@ -144,7 +144,6 @@ class Finvasia {
                 "imei": this.imei
             };
             let auth_data = await this.api("authorize", authparams);
-            console.log({ auth_data })
             this.__susertoken = auth_data.susertoken;
         } catch (e) {
             console.log(e);
@@ -174,7 +173,7 @@ class Finvasia {
             'uid': this.userid,
             'actid': this.userid,
             'trantype': order.trantype || "B",
-            "prd": "I",
+            "prd": "M",
             "exch": "NFO",
             "tsym": order.symbol,
             "qty": order.quantity.toString(),
@@ -255,8 +254,8 @@ async function run() {
     const tsym = {}, pendingOrders = {}, sellOrders = {};
     const fv = new Finvasia();
 
-    // await fv.login();
-
+    await fv.login();
+    
     const orderbook = await fv.get_order_book();
     orderbook?.map(ob => {
         if (ob?.status === "OPEN") {
