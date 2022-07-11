@@ -255,7 +255,7 @@ async function run() {
     const tsym = {}, pendingOrders = {}, sellOrders = {};
     const fv = new Finvasia();
 
-    // await fv.login();
+    //await fv.login();
 
     const orderbook = await fv.get_order_book();
     orderbook?.map(ob => {
