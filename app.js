@@ -302,7 +302,7 @@ async function run() {
                     sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
             }
-            if(result.reporttype === "Replaced") {
+            if (result.reporttype === "Replaced") {
                 if (result.trantype === "S") {
                     sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
@@ -323,7 +323,7 @@ async function run() {
                     delete sellOrders[result.norenordno];
                 }
             }
-            if(["REJECTED", "rejected"].includes(result.status.toLowerCase())) {
+            if (["REJECTED", "rejected"].includes(result.status.toLowerCase())) {
                 if (result.trantype === "B") {
                     delete pendingOrders[result.norenordno];
                 }
@@ -331,7 +331,7 @@ async function run() {
                     delete sellOrders[result.norenordno];
                 }
             }
-            if(result.reporttype === "CancelRejected") {
+            if (result.reporttype === "CancelRejected") {
                 if (result.trantype === "B") {
                     delete pendingOrders[result.norenordno];
                 }
@@ -370,17 +370,17 @@ async function run() {
             const cTime = moment();
 
             console.log("tick", tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
-	    const cHour = cTime.format("HH");
+            const cHour = cTime.format("HH");
             const cSec = cTime.format("ss");
-            
-	    if (stopSameSecond === cSec) return;
- 	    stopSameSecond = cSec;
-		
 
-            if (cSec === "00" || (lastSec !== "00" && cSec === "01")) {
+            if (stopSameSecond === cSec) return;
+            stopSameSecond = cSec;
+
+
+            if (cSec === "00" || (setOpenSec !== "00" && cSec === "01")) {
                 Open = tick.LTP;
             }
-	    setOpenSec = cSec;
+            setOpenSec = cSec;
 
             if (["10", "11", "12", "14"].includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
                 lastSec = cSec;
