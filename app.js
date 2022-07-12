@@ -369,7 +369,7 @@ async function run() {
 
             const cTime = moment();
 
-            console.log("tick", tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
+            console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
             const cHour = cTime.format("HH");
             const cSec = cTime.format("ss");
 
