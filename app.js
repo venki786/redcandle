@@ -8,15 +8,15 @@ import WebSocket from "ws";
 dotenv.config();
 
 const LOSS_P_VALUE = 1.5;
-const PROFIT_VALUE = 2;
-const QUANTITY = 200;
+const PROFIT_VALUE = 3;
+const QUANTITY = 100;
 const preferredHours = ["10", "11", "12"];
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) - 50
+    return (atm.lp - v) + (v > 50 ? 0 : -50)
 }
 
 function calSL(price, lossPer) {
@@ -181,7 +181,7 @@ class Finvasia {
             "dscqty": "0",
             "prctyp": "LMT",
             "prc": order.price.toString(),
-            "remarks": "",
+            "remarks": "redcandle",
             "ret": "DAY"
         }
         return await this.api("placeorder", values, this.__susertoken);
@@ -260,7 +260,8 @@ async function run() {
     const orderbook = await fv.get_order_book();
 
     !orderbook.emsg && orderbook.map(ob => {
-        if (ob?.status === "OPEN") {
+        console.log(ob)
+        if (ob.remarks === "redcandle" && ob?.status === "OPEN") {
             if (ob.trantype === "B") {
                 pendingOrders[ob.norenordno] = {
                     ...ob,
@@ -273,7 +274,7 @@ async function run() {
         }
     });
     console.log("init", pendingOrders, sellOrders);
-
+    
     await fv.streaming();
     fv.ws.onmessage = (evt) => {
 
@@ -289,7 +290,7 @@ async function run() {
         // if (result.t == 'dk' || result.t == 'df') {
         //     console.log("quote", [result]);
         // }
-        if (result.t == 'om') {
+        if (result.t == 'om' && result.remarks === "redcandle") {
             if (result.reporttype === "New") {
 
                 if (result.trantype === "B") {
