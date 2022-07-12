@@ -261,7 +261,7 @@ async function run() {
 
     !orderbook.emsg && orderbook.map(ob => {
         console.log(ob)
-        if (ob.remarks === "redcandle" && ob?.status === "OPEN") {
+        if (ob.remarks?.includes("redcandle") && ob?.status === "OPEN") {
             if (ob.trantype === "B") {
                 pendingOrders[ob.norenordno] = {
                     ...ob,
@@ -290,7 +290,7 @@ async function run() {
         // if (result.t == 'dk' || result.t == 'df') {
         //     console.log("quote", [result]);
         // }
-        if (result.t == 'om' && result.remarks === "redcandle") {
+        if (result.t == 'om' && result.remarks?.includes("redcandle")) {
             if (result.reporttype === "New") {
 
                 if (result.trantype === "B") {
@@ -301,7 +301,7 @@ async function run() {
                 }
 
                 if (result.trantype === "S") {
-                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
+                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc) - Number(PROFIT_VALUE), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
             }
             if (result.reporttype === "Replaced") {
@@ -388,7 +388,7 @@ async function run() {
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
                     quantity: String(QUANTITY),
-                    price: String(Number(tick.LTP) + 0.05) //tick.Ask
+                    price: String(Number(tick.LTP) - 0.05) //tick.Ask
                 }).catch(console.error)
             }
             lastSec = cSec;
@@ -397,7 +397,7 @@ async function run() {
             try {
                 Object.keys(sellOrders).map(so => {
                     const order = sellOrders[so];
-                    if (tick.LTP <= (Number(order.v) - Number(PROFIT_VALUE))) {
+                    if (tick.LTP <= Number(order.v)) {
                         console.log("Modify", tick.LTP, order.v, so, order.sl, order.tsym)
                         fv.modify_order({
                             orderno: so,
