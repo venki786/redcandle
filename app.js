@@ -10,6 +10,7 @@ dotenv.config();
 const LOSS_P_VALUE = 1.5;
 const PROFIT_VALUE = 2;
 const QUANTITY = 200;
+const preferredHours = ["10", "11", "12"];
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
@@ -368,26 +369,25 @@ async function run() {
         tickHandler: (tick) => {
 
             const cTime = moment();
-
-            console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
-            const cHour = cTime.format("HH");
             const cSec = cTime.format("ss");
 
+            console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
             if (stopSameSecond === cSec) return;
             stopSameSecond = cSec;
-
 
             if (cSec === "00" || (setOpenSec !== "00" && cSec === "01")) {
                 Open = tick.LTP;
             }
             setOpenSec = cSec;
 
-            if (["10", "11", "12", "14"].includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
+            const cHour = cTime.format("HH");
+            
+            if (preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
                 lastSec = cSec;
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
                     quantity: String(QUANTITY),
-                    price: String(tick.Ask) //tick.Ask
+                    price: String(Number(tick.LTP) + 0.05) //tick.Ask
                 }).catch(console.error)
             }
             lastSec = cSec;
