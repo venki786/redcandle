@@ -7,15 +7,15 @@ import WebSocket from "ws";
 
 dotenv.config();
 
-const LOSS_P_VALUE = 1.25;
-const PROFIT_VALUE = 2.25;
-const QUANTITY = 50;
+const LOSS_P_VALUE = 1.5;
+const PROFIT_VALUE = 2;
+const QUANTITY = 200;
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) + 50
+    return (atm.lp - v) - 50
 }
 
 function calSL(price, lossPer) {
@@ -257,7 +257,8 @@ async function run() {
     await fv.login();
 
     const orderbook = await fv.get_order_book();
-    orderbook?.map(ob => {
+
+    !orderbook.emsg && orderbook.map(ob => {
         if (ob?.status === "OPEN") {
             if (ob.trantype === "B") {
                 pendingOrders[ob.norenordno] = {
@@ -359,7 +360,7 @@ async function run() {
         time: false
     }
 
-    let Open = 0, lastSec;
+    let Open = 0, lastSec, stopSameSecond, setOpenSec;
 
     const td = new TrueData;
     td.start({
@@ -369,15 +370,19 @@ async function run() {
             const cTime = moment();
 
             console.log("tick", tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
-
+	    const cHour = cTime.format("HH");
             const cSec = cTime.format("ss");
-            if (lastSec === cSec) return;
+            
+	    if (stopSameSecond === cSec) return;
+ 	    stopSameSecond = cSec;
+		
 
             if (cSec === "00" || (lastSec !== "00" && cSec === "01")) {
                 Open = tick.LTP;
             }
+	    setOpenSec = cSec;
 
-            if (isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
+            if (["10", "11", "12", "14"].includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
                 lastSec = cSec;
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
