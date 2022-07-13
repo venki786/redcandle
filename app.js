@@ -8,15 +8,15 @@ import WebSocket from "ws";
 dotenv.config();
 
 const LOSS_P_VALUE = 1.5;
-const PROFIT_VALUE = 3;
-const QUANTITY = 100;
+const PROFIT_VALUE = 2;
+const QUANTITY = 200;
 const preferredHours = ["10", "11", "12"];
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) + (v > 50 ? 0 : -50)
+    return (atm.lp - v) + (v > 50 ? 50 : 0)
 }
 
 function calSL(price, lossPer) {
@@ -309,7 +309,7 @@ async function run() {
                     sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
                 }
             }
-            if (result.reporttype === "Fill") {
+            if (result.reporttype === "Fill" && result.status === "COMPLETE") {
                 if (result.trantype === "B") {
                     delete pendingOrders[result.norenordno];
 
@@ -395,6 +395,7 @@ async function run() {
 
             // Trail STOP LOSS,
             try {
+		if(!preferredHours.includes(cHour)) {
                 Object.keys(sellOrders).map(so => {
                     const order = sellOrders[so];
                     if (tick.LTP <= Number(order.v)) {
@@ -407,6 +408,7 @@ async function run() {
                         }).catch(console.error);
                     }
                 });
+		}
             } catch (e) {
                 console.log("Trail stop loss:ERROR", e);
             }
