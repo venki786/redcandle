@@ -274,7 +274,7 @@ async function run() {
         }
     });
     console.log("init", pendingOrders, sellOrders);
-    
+
     await fv.streaming();
     fv.ws.onmessage = (evt) => {
 
@@ -382,7 +382,7 @@ async function run() {
             setOpenSec = cSec;
 
             const cHour = cTime.format("HH");
-            
+
             if (preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
                 lastSec = cSec;
                 fv.place_order({
@@ -395,20 +395,20 @@ async function run() {
 
             // Trail STOP LOSS,
             try {
-		if(!preferredHours.includes(cHour)) {
-                Object.keys(sellOrders).map(so => {
-                    const order = sellOrders[so];
-                    if (tick.LTP <= Number(order.v)) {
-                        console.log("Modify", tick.LTP, order.v, so, order.sl, order.tsym)
-                        fv.modify_order({
-                            orderno: so,
-                            newPrice: order.sl,
-                            tsym: order.tsym,
-                            quantity: order.quantity
-                        }).catch(console.error);
-                    }
-                });
-		}
+                if (!preferredHours.includes(cHour)) {
+                    Object.keys(sellOrders).map(so => {
+                        const order = sellOrders[so];
+                        if (tick.LTP <= Number(order.v)) {
+                            console.log("Modify", tick.LTP, order.v, so, order.sl, order.tsym)
+                            fv.modify_order({
+                                orderno: so,
+                                newPrice: order.sl,
+                                tsym: order.tsym,
+                                quantity: order.quantity
+                            }).catch(console.error);
+                        }
+                    });
+                }
             } catch (e) {
                 console.log("Trail stop loss:ERROR", e);
             }
