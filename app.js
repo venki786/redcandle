@@ -16,7 +16,7 @@ const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) + (v > 50 ? 50 : 0)
+    return (atm.lp - v) + (v > 50 ? 100 : 50)
 }
 
 function calSL(price, lossPer) {
@@ -388,7 +388,7 @@ async function run() {
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
                     quantity: String(QUANTITY),
-                    price: String(Number(tick.LTP) - 0.05) //tick.Ask
+                    price: tick.Ask
                 }).catch(console.error)
             }
             lastSec = cSec;
