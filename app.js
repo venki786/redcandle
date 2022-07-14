@@ -7,10 +7,11 @@ import WebSocket from "ws";
 
 dotenv.config();
 
-const LOSS_P_VALUE = 1.5;
+const LOSS_P_VALUE = 0.2;
 const PROFIT_VALUE = 2;
 const QUANTITY = 200;
 const preferredHours = ["10", "11", "12"];
+const SELL_STOP_LOSS_TIME_LIMIT = 300; //IN SECONDS
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
@@ -90,7 +91,7 @@ class Finvasia {
         this.vendor_code = vendor_code;
         this.api_secret = api_secret;
         this.imei = imei;
-        this.__susertoken = "57adf78491e607686e46895544595a7ae315f882d251b26a81fad68daff0ac16";
+        this.__susertoken = "15f4c0c5c8942a60b5bae0a8c62b7384f987a55fafd24d30152afbf9b012248e";
         this.apiConfig = {
             "endpoint": "https://shoonyatrade.finvasia.com/NorenWClientTP",
             "websocket": "wss://shoonyatrade.finvasia.com/NorenWSTP/",
@@ -255,21 +256,23 @@ async function run() {
     const tsym = {}, pendingOrders = {}, sellOrders = {};
     const fv = new Finvasia();
 
+    const dateValue = new Date();
+    console.log("Started At", dateValue);
+
     await fv.login();
 
     const orderbook = await fv.get_order_book();
 
     !orderbook.emsg && orderbook.map(ob => {
-        console.log(ob)
         if (ob.remarks?.includes("redcandle") && ob?.status === "OPEN") {
             if (ob.trantype === "B") {
                 pendingOrders[ob.norenordno] = {
                     ...ob,
-                    placedAt: (ob.ordenttm * 1000) || (new Date()).getTime()
+                    placedAt: (dateValue).getTime()
                 };
             }
             if (ob.trantype === "S") {
-                sellOrders[ob.norenordno] = { ...calSL(Number(ob.prc), LOSS_P_VALUE), tsym: ob.tsym, quantity: ob.qty };
+                sellOrders[ob.norenordno] = { tsym: ob.tsym, quantity: ob.qty, placedAt: (dateValue).getTime(), price: ob.prc };
             }
         }
     });
@@ -301,12 +304,12 @@ async function run() {
                 }
 
                 if (result.trantype === "S") {
-                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc) - Number(PROFIT_VALUE), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
+                    sellOrders[result.norenordno] = { tsym: result.tsym, quantity: result.qty, placedAt: (new Date()).getTime(), price: result.prc };
                 }
             }
             if (result.reporttype === "Replaced") {
                 if (result.trantype === "S") {
-                    sellOrders[result.norenordno] = { ...calSL(Number(result.prc), LOSS_P_VALUE), tsym: result.tsym, quantity: result.qty };
+                    sellOrders[result.norenordno] = { tsym: result.tsym, quantity: result.qty, placedAt: (new Date()).getTime(), price: result.prc };
                 }
             }
             if (result.reporttype === "Fill" && result.status === "COMPLETE") {
@@ -373,6 +376,7 @@ async function run() {
             const cSec = cTime.format("ss");
 
             console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
+
             if (stopSameSecond === cSec) return;
             stopSameSecond = cSec;
 
@@ -383,7 +387,7 @@ async function run() {
 
             const cHour = cTime.format("HH");
 
-            if (preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
+            if (Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
                 lastSec = cSec;
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
@@ -392,26 +396,6 @@ async function run() {
                 }).catch(console.error)
             }
             lastSec = cSec;
-
-            // Trail STOP LOSS,
-            try {
-                if (!preferredHours.includes(cHour)) {
-                    Object.keys(sellOrders).map(so => {
-                        const order = sellOrders[so];
-                        if (tick.LTP <= Number(order.v)) {
-                            console.log("Modify", tick.LTP, order.v, so, order.sl, order.tsym)
-                            fv.modify_order({
-                                orderno: so,
-                                newPrice: order.sl,
-                                tsym: order.tsym,
-                                quantity: order.quantity
-                            }).catch(console.error);
-                        }
-                    });
-                }
-            } catch (e) {
-                console.log("Trail stop loss:ERROR", e);
-            }
 
             // Cancel the orders, if any order placed at 30 seconds before && still in pending mode.
             try {
@@ -439,6 +423,27 @@ async function run() {
                     time: bar.Time
                 }
                 console.log({ color: 'green', ...bar })
+            }
+            try {
+                const cTime = moment();
+                const cHour = cTime.format("HH");
+                if (!preferredHours.includes(cHour)) {
+                    Object.keys(sellOrders).map(so => {
+                        const order = sellOrders[so];
+                        if (cTime.diff(moment(order.placedAt), "seconds") > SELL_STOP_LOSS_TIME_LIMIT) {
+                            const newPrice = Number(order.price) - LOSS_P_VALUE;
+                            console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
+                            fv.modify_order({
+                                orderno: so,
+                                newPrice,
+                                tsym: order.tsym,
+                                quantity: order.quantity
+                            }).catch(console.error);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.log("Trail stop loss:ERROR", e);
             }
         }
     });
