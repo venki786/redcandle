@@ -374,7 +374,7 @@ async function run() {
 
             const cTime = moment();
             const cSec = cTime.format("ss");
-	    const cMinute = cTime.format("mm");
+            const cMinute = cTime.format("mm");
             console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
 
             if (stopSameSecond === cSec) return;
@@ -389,11 +389,11 @@ async function run() {
 
             if (Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP) && Number(cMinute) > 5) {
                 lastSec = cSec;
-		const items = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15 ]; //items[Math.floor(Math.random()*items.length)];
-		const quantity = [50, 100, 150, 200];
+                const items = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15]; //items[Math.floor(Math.random()*items.length)];
+                const quantity = [50, 100, 150, 200];
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
-                    quantity: String(quantity[Math.floor(Math.random() * quantity.length]),
+                    quantity: String(quantity[Math.floor(Math.random() * quantity.length)]),
                     price: String(items[Math.floor(Math.random() * items.length)]),
                 }).catch(console.error)
             }
@@ -430,19 +430,19 @@ async function run() {
                 const cTime = moment();
                 const cHour = cTime.format("HH");
                 //if (!preferredHours.includes(cHour)) {
-                    Object.keys(sellOrders).map(so => {
-                        const order = sellOrders[so];
-                        if (cTime.diff(moment(order.placedAt), "seconds") > SELL_STOP_LOSS_TIME_LIMIT) {
-                            const newPrice = Number(order.price) - LOSS_P_VALUE;
-                            console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
-                            fv.modify_order({
-                                orderno: so,
-                                newPrice: String(newPrice),
-                                tsym: order.tsym,
-                                quantity: order.quantity
-                            }).catch(console.error);
-                        }
-                    });
+                Object.keys(sellOrders).map(so => {
+                    const order = sellOrders[so];
+                    if (cTime.diff(moment(order.placedAt), "seconds") > SELL_STOP_LOSS_TIME_LIMIT) {
+                        const newPrice = Number(order.price) - LOSS_P_VALUE;
+                        console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
+                        fv.modify_order({
+                            orderno: so,
+                            newPrice: String(newPrice),
+                            tsym: order.tsym,
+                            quantity: order.quantity
+                        }).catch(console.error);
+                    }
+                });
                 //}
             } catch (e) {
                 console.log("Trail stop loss:ERROR", e);
