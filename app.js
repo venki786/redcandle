@@ -8,9 +8,9 @@ import WebSocket from "ws";
 dotenv.config();
 
 const LOSS_P_VALUE = 1.5;
-const PROFIT_VALUE = 2.5;
-const QUANTITY = 200;
-const preferredHours = ["10", "11", "12", "13", "14"];
+const PROFIT_VALUE = 2.15;
+const QUANTITY = 50;
+const preferredHours = ["10", "11", "12"];
 const SELL_STOP_LOSS_TIME_LIMIT = 1200; //IN SECONDS
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
@@ -390,7 +390,7 @@ async function run() {
             if (Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP) && Number(cMinute) > 5) {
                 lastSec = cSec;
                 const items = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15]; //items[Math.floor(Math.random()*items.length)];
-                const quantity = [50, 100, 150, 200];
+                const quantity = [50, 100];
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
                     quantity: String(quantity[Math.floor(Math.random() * quantity.length)]),
