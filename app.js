@@ -7,17 +7,17 @@ import WebSocket from "ws";
 
 dotenv.config();
 
-const LOSS_P_VALUE = 0.2;
-const PROFIT_VALUE = 2;
+const LOSS_P_VALUE = 1.5;
+const PROFIT_VALUE = 2.5;
 const QUANTITY = 200;
-const preferredHours = ["10", "11", "12"];
-const SELL_STOP_LOSS_TIME_LIMIT = 300; //IN SECONDS
+const preferredHours = ["10", "11", "12", "13", "14"];
+const SELL_STOP_LOSS_TIME_LIMIT = 1200; //IN SECONDS
 
 const sleep = (ms) => new Promise(rs => setTimeout(rs, ms * 1000));
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) + (v > 50 ? 100 : 50)
+    return (atm.lp - v) + (v > 50 ? 0 : 50)
 }
 
 function calSL(price, lossPer) {
@@ -374,7 +374,7 @@ async function run() {
 
             const cTime = moment();
             const cSec = cTime.format("ss");
-
+	    const cMinute = cTime.format("mm");
             console.log("tick", Open, tick.LTP, tick.Timestamp, cTime.format("HH:mm:ss:SSS"));
 
             if (stopSameSecond === cSec) return;
@@ -387,12 +387,14 @@ async function run() {
 
             const cHour = cTime.format("HH");
 
-            if (Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP)) {
+            if (Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (lastSec !== "58" && cSec === "59")) && (Open > tick.LTP) && Number(cMinute) > 5) {
                 lastSec = cSec;
+		const items = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15 ]; //items[Math.floor(Math.random()*items.length)];
+		const quantity = [50, 100, 150, 200];
                 fv.place_order({
                     symbol: tsym[tick.Symbol],
-                    quantity: String(QUANTITY),
-                    price: tick.Ask
+                    quantity: String(quantity[Math.floor(Math.random() * quantity.length]),
+                    price: String(items[Math.floor(Math.random() * items.length)]),
                 }).catch(console.error)
             }
             lastSec = cSec;
@@ -400,7 +402,7 @@ async function run() {
             // Cancel the orders, if any order placed at 30 seconds before && still in pending mode.
             try {
                 Object.keys(pendingOrders).map(po => {
-                    if (cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 30) {
+                    if (cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 45) {
                         console.log("cancel_order", po, cTime, pendingOrders[po].placedAt);
                         fv.cancel_order(po).catch(console.error);
                         delete pendingOrders[po];
@@ -416,7 +418,7 @@ async function run() {
                     status: true,
                     time: bar.Time
                 }
-                console.log({ color: 'red', ...bar })
+                console.log({ color: 'red', ...bar, diff: bar.Open - bar.Close })
             } else {
                 isLastCandleRed = {
                     status: false,
@@ -427,7 +429,7 @@ async function run() {
             try {
                 const cTime = moment();
                 const cHour = cTime.format("HH");
-                if (!preferredHours.includes(cHour)) {
+                //if (!preferredHours.includes(cHour)) {
                     Object.keys(sellOrders).map(so => {
                         const order = sellOrders[so];
                         if (cTime.diff(moment(order.placedAt), "seconds") > SELL_STOP_LOSS_TIME_LIMIT) {
@@ -435,13 +437,13 @@ async function run() {
                             console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
                             fv.modify_order({
                                 orderno: so,
-                                newPrice,
+                                newPrice: String(newPrice),
                                 tsym: order.tsym,
                                 quantity: order.quantity
                             }).catch(console.error);
                         }
                     });
-                }
+                //}
             } catch (e) {
                 console.log("Trail stop loss:ERROR", e);
             }
