@@ -1,4 +1,5 @@
 import sha256 from "crypto-js/sha256.js";
+import { WebSocket } from "ws";
 
 export default class Finvasia {
     constructor({
@@ -64,7 +65,6 @@ export default class Finvasia {
                 },
                 method: "POST"
             });
-            console.log({rawResponse})
             return await rawResponse.json();
         } catch(e) {
             throw e;
@@ -97,7 +97,6 @@ export default class Finvasia {
         values["exch"] = exchange;
         values["stext"] = searchtext;
         let reply = await this.api("searchscrip", values, this.__susertoken);
-        if(!reply) return [];
         return await Promise.all(reply.values.map(async v => {
             const t = await this.get_quotes(v.exch, v.token);
             return t;
@@ -161,5 +160,41 @@ export default class Finvasia {
             "actid": this.userid,
         }
         return await this.api("positions", values, this.__susertoken);
+    }
+    async streaming(payload = {}) {
+        return new Promise((resolve, reject) => {
+            this.ws = new WebSocket(this.apiConfig.websocket); //, { rejectUnauthorized: false }
+            this.ws.onopen = (evt) => {
+
+                this.streamingInterval = setInterval(() => { let _hb_req = '{"t":"h"}'; this.ws.send(_hb_req); }, this.apiConfig.timeout);
+
+                let values = {
+                    "t": "c",
+                    "uid": this.userid,
+                    "actid": this.userid,
+                    "susertoken": this.__susertoken,
+                    "source": "API"
+                };
+                this.ws.send(JSON.stringify(values));
+                resolve()
+            };
+            this.ws.onerror = async (evt) => {
+                if (this.streamingInterval) clearInterval(this.streamingInterval);
+                console.log("error::", JSON.stringify(evt));
+                await this.retryConnection({ waitFor: 5 });
+                await this.streaming(payload);
+                reject(evt)
+            };
+            this.ws.onclose = async (evt) => {
+                if (this.streamingInterval) clearInterval(this.streamingInterval);
+                console.log("Socket closed", JSON.stringify(evt));
+                await this.retryConnection();
+                await this.streaming(payload);
+            };
+        });
+    }
+    async retryConnection({ waitFor = 2 } = {}) {
+        await sleep(waitFor);
+        await this.login();
     }
 }

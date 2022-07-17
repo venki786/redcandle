@@ -74,13 +74,16 @@ export default class TD {
             return false;
         }
     }
-    socketonopen() {
+    socketonopen(e) {
+        console.log("open", e)
         console.log('Connected Websocket');
     }
-    socketonerror() {
+    socketonerror(e) {
+        console.log("error", e)
         console.log('Websocket Error ' + e.message);
     }
-    socketonclose() {
+    socketonclose(e) {
+        console.log("close", e)
         console.log('Disconnected Websocket');
         if (!this.disconnectConnection) setTimeout(this.connect.bind(this), this.reconnectionTime);
     }
