@@ -6,6 +6,7 @@ import Finvasia from "./scripts/fv";
 let preferredHours = ["10", "11", "12"];
 let modify_order_sl_intervals = [0, 20 * 60, 15 * 60, 10 * 60, 5 * 60];
 let QUANTITY = 50;
+let PROFIT_VALUE= 2;
 
 const fv = new Finvasia();
 
@@ -151,13 +152,13 @@ td.onTickHandler = (tick) => {
     const cHour = cTime.format("HH");
     const cMinute = cTime.format("mm");
 
-    if (indSym.Open && preferredHours.includes(cHour) && isLastCandleRed.status && (cSec === "58" || (indSym.lastSec !== "58" && cSec === "59")) && (indSym.Open > tick.LTP) && Number(cMinute) > 5) {
+    if (indSym.Open && preferredHours.includes(cHour) && indSym.isLastCandleRed.status && (cSec === "58" || (indSym.lastSec !== "58" && cSec === "59")) && (indSym.Open > tick.LTP) && Number(cMinute) > 5) {
         indSym.lastSec = cSec;
         const prices = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15];
         fv.place_order({
             symbol: tsym[tick.Symbol],
             quantity: String(QUANTITY),
-            price: String(prices[Math.floor(Math.random() * prices.length)]),
+            price: String(tick.LTP),
         }).catch(console.error)
     }
     indSym.lastSec = cSec;
@@ -165,6 +166,7 @@ td.onTickHandler = (tick) => {
     // Cancel the orders, if any order placed at given seconds before && still in pending mode.
     try {
         Object.keys(pendingOrders).map(po => {
+		console.log(po.tsym, tsym[tick.Symbol], pendingOrders[po].placedAt);
             if (po.tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 15) {
                 delete pendingOrders[po];
                 fv.cancel_order(po).catch(console.error);

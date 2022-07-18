@@ -53,7 +53,7 @@ export default class TD {
                                 console.log(`Removed Symbols:${jsonObj.symbolsremoved}, Symbols Subscribed:${jsonObj.totalsymbolsubscribed}`);
                                 break;
                             case 'HeartBeat':
-                                console.log('Message ' + jsonObj.message + ' Time: ' + jsonObj.timestamp);
+                                //console.log('Message ' + jsonObj.message + ' Time: ' + jsonObj.timestamp);
                                 break;
                             case 'marketstatus':
                                 console.log('marketstatus', jsonObj.data)
