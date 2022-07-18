@@ -4,10 +4,10 @@ import TD from "./scripts/td";
 import Finvasia from "./scripts/fv";
 
 let preferredHours = ["10", "11", "12"];
-let modify_order_sl_intervals = [0, 20 * 60, 15 * 60, 10 * 60, 5 * 60];
+let modify_order_sl_intervals = [0, 15 * 60, 10 * 60, 5 * 60, 2.5 * 60, 60];
 let QUANTITY = 50;
-let PROFIT_VALUE= 2;
-let LOSS_P_VALUE= 1.5;
+let PROFIT_VALUE = 2;
+let LOSS_P_VALUE = 1.25;
 
 const fv = new Finvasia();
 
@@ -72,14 +72,13 @@ fv.ws.onmessage = (evt) => {
         }
         if (result.reporttype === "Fill" && result.status === "COMPLETE") {
             if (result.trantype === "B") {
-                delete pendingOrders[result.norenordno];
-
                 fv.place_order({
                     symbol: result.tsym,
                     quantity: result.qty,
                     price: String(Number(result.flprc) + Number(PROFIT_VALUE)),
                     trantype: "S"
-                }).catch(console.error)
+                }).catch(console.error);
+                delete pendingOrders[result.norenordno];
 
             }
             if (result.trantype === "S") {
@@ -168,9 +167,9 @@ td.onTickHandler = (tick) => {
     // Cancel the orders, if any order placed at given seconds before && still in pending mode.
     try {
         Object.keys(pendingOrders).map(po => {
-	    if (pendingOrders[po].tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 15) {
+            if (pendingOrders[po].tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 15) {
                 fv.cancel_order(po).catch(console.error);
-		delete pendingOrders[po];
+                delete pendingOrders[po];
             }
         });
     } catch (e) {
@@ -181,7 +180,7 @@ td.onTickHandler = (tick) => {
         Object.keys(sellOrders).map(so => {
             const order = sellOrders[so];
             if (order.tsym === tsym[tick.Symbol] && (Number(order.realprc) - Number(tick.LTP)) >= 21) {
-                console.log("modify_order_sl_21", so, order.placedAt, cTime, order.price, order.realprc);
+                console.log("<<<<<<<<<<<<modify_order_sl_21>>>>>>>>>>>>>", so, order.placedAt, cTime, order.price, order.realprc);
                 fv.modify_order({
                     orderno: so,
                     newPrice: String(tick.LTP + 5),
@@ -200,7 +199,7 @@ td.on1MinBarHandler = (bar) => {
         symbolsFac[bar.Symbol].isLastCandleRed = {
             status: true,
             time: bar.Time,
-	    diff: bar.Open - bar.Close
+            diff: bar.Open - bar.Close
         }
         console.log({ color: 'red', ...bar, diff: bar.Open - bar.Close })
     } else {
@@ -214,10 +213,13 @@ td.on1MinBarHandler = (bar) => {
         const cTime = moment();
         Object.keys(sellOrders).map(so => {
             const order = sellOrders[so];
-	    console.log(order, bar.Symbol, order.modifyCount, order.placedAt,  modify_order_sl_intervals, "barSell")
-            if (order.tsym === tsym[bar.Symbol] && modify_order_sl_intervals[order.modifyCount] && cTime.diff(moment(order.placedAt), "seconds") > modify_order_sl_intervals[order.modifyCount]) {
+            if (
+                order.tsym === tsym[bar.Symbol]
+                && modify_order_sl_intervals[order.modifyCount]
+                && cTime.diff(moment(order.placedAt), "seconds") > modify_order_sl_intervals[order.modifyCount]
+            ) {
                 const newPrice = Number(order.price) - LOSS_P_VALUE;
-                console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
+                console.log("modify_order_after_time", so, order.placedAt, cTime, order.price, newPrice);
                 fv.modify_order({
                     orderno: so,
                     newPrice: String(newPrice),
@@ -236,7 +238,7 @@ export default {
     fetch(request) {
         if (request.method === "POST") {
             const params = Object.fromEntries((new URLSearchParams(request.url)).entries());
-            ws.send(JSON.stringify(params));
+            // ws.send(JSON.stringify(params));
         }
         return new Response("Welcome!");
     },
@@ -244,5 +246,5 @@ export default {
 
 function calDesiredValue(atm) {
     const v = (atm.lp % 100);
-    return (atm.lp - v) + (v > 50 ? 0 : 50)
+    return (atm.lp - v) + (v > 50 ? 50 : 0)
 }
