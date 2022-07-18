@@ -7,6 +7,7 @@ let preferredHours = ["10", "11", "12"];
 let modify_order_sl_intervals = [0, 20 * 60, 15 * 60, 10 * 60, 5 * 60];
 let QUANTITY = 50;
 let PROFIT_VALUE= 2;
+let LOSS_P_VALUE= 1.5;
 
 const fv = new Finvasia();
 
@@ -15,9 +16,11 @@ const tsym = {}, pendingOrders = {}, sellOrders = {};
 await fv.login();
 
 const orderbook = await fv.get_order_book();
-
+const dateValue = new Date();
 !orderbook.emsg && orderbook.map(ob => {
+
     if (ob.remarks?.includes("redcandle") && ob?.status === "OPEN") {
+
         if (ob.trantype === "B") {
             pendingOrders[ob.norenordno] = {
                 ...ob,
@@ -154,7 +157,6 @@ td.onTickHandler = (tick) => {
 
     if (indSym.Open && preferredHours.includes(cHour) && indSym.isLastCandleRed.status && (cSec === "58" || (indSym.lastSec !== "58" && cSec === "59")) && (indSym.Open > tick.LTP) && Number(cMinute) > 5) {
         indSym.lastSec = cSec;
-        const prices = [tick.LTP + 0.05, tick.Ask, tick.Ask - 0.5, tick.LTP, tick.LTP - 0.15, tick.Ask - 0.15];
         fv.place_order({
             symbol: tsym[tick.Symbol],
             quantity: String(QUANTITY),
@@ -166,10 +168,9 @@ td.onTickHandler = (tick) => {
     // Cancel the orders, if any order placed at given seconds before && still in pending mode.
     try {
         Object.keys(pendingOrders).map(po => {
-		console.log(po.tsym, tsym[tick.Symbol], pendingOrders[po].placedAt);
-            if (po.tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 15) {
-                delete pendingOrders[po];
+	    if (pendingOrders[po].tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 15) {
                 fv.cancel_order(po).catch(console.error);
+		delete pendingOrders[po];
             }
         });
     } catch (e) {
@@ -180,7 +181,7 @@ td.onTickHandler = (tick) => {
         Object.keys(sellOrders).map(so => {
             const order = sellOrders[so];
             if (order.tsym === tsym[tick.Symbol] && (Number(order.realprc) - Number(tick.LTP)) >= 21) {
-                console.log("modify_order", so, order.placedAt, cTime, order.price, order.realprc);
+                console.log("modify_order_sl_21", so, order.placedAt, cTime, order.price, order.realprc);
                 fv.modify_order({
                     orderno: so,
                     newPrice: String(tick.LTP + 5),
@@ -198,7 +199,8 @@ td.on1MinBarHandler = (bar) => {
     if (bar.Open > bar.Close) {
         symbolsFac[bar.Symbol].isLastCandleRed = {
             status: true,
-            time: bar.Time
+            time: bar.Time,
+	    diff: bar.Open - bar.Close
         }
         console.log({ color: 'red', ...bar, diff: bar.Open - bar.Close })
     } else {
@@ -212,6 +214,7 @@ td.on1MinBarHandler = (bar) => {
         const cTime = moment();
         Object.keys(sellOrders).map(so => {
             const order = sellOrders[so];
+	    console.log(order, bar.Symbol, order.modifyCount, order.placedAt,  modify_order_sl_intervals, "barSell")
             if (order.tsym === tsym[bar.Symbol] && modify_order_sl_intervals[order.modifyCount] && cTime.diff(moment(order.placedAt), "seconds") > modify_order_sl_intervals[order.modifyCount]) {
                 const newPrice = Number(order.price) - LOSS_P_VALUE;
                 console.log("modify_order", so, order.placedAt, cTime, order.price, newPrice);
