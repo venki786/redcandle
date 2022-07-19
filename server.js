@@ -4,11 +4,13 @@ import TD from "./scripts/td";
 import Finvasia from "./scripts/fv";
 
 let preferredHours = ["10", "11", "12"];
-let modify_order_sl_intervals = [0, 4 * 60, 16 * 60];
+let modify_order_sl_intervals = [0, 5 * 60, 15 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60];
 let QUANTITY = 50;
 let PROFIT_VALUE = 2;
 let LOSS_P_VALUE = 1.75;
 let LOSS_AFTER_VALUE = 1;
+
+let trending = "C";
 
 const fv = new Finvasia();
 
@@ -19,7 +21,7 @@ await fv.login();
 const orderbook = await fv.get_order_book();
 const dateValue = new Date();
 !orderbook.emsg && orderbook.map(ob => {
-
+    // console.log({ob}, "\n");
     if (ob.remarks?.includes("redcandle") && ob?.status === "OPEN") {
 
         if (ob.trantype === "B") {
@@ -76,7 +78,7 @@ fv.ws.onmessage = (evt) => {
                 fv.place_order({
                     symbol: result.tsym,
                     quantity: result.qty,
-                    price: String(Number(result.flprc) + Number(PROFIT_VALUE) + (result.tsym.includes("CE") ? 1 : 0)),
+                    price: String(Number(result.flprc) + Number(PROFIT_VALUE) + (result.tsym.includes(trending) ? 1 : 0)),
                     trantype: "S"
                 }).catch(console.error);
                 delete pendingOrders[result.norenordno];
@@ -176,23 +178,6 @@ td.onTickHandler = (tick) => {
     } catch (e) {
         console.log("Cancel order:ERROR", e);
     }
-
-    try {
-        Object.keys(sellOrders).map(so => {
-            const order = sellOrders[so];
-            if (order.tsym === tsym[tick.Symbol] && (Number(order.realprc) - Number(tick.LTP)) >= 21) {
-                console.log("<<<<<<<<<<<<modify_order_sl_21>>>>>>>>>>>>>", so, order.placedAt, cTime, order.price, order.realprc);
-                fv.modify_order({
-                    orderno: so,
-                    newPrice: String(tick.LTP + 5),
-                    tsym: order.tsym,
-                    quantity: order.quantity
-                }).catch(console.error);
-            }
-        });
-    } catch (e) {
-        console.log("Trail stop loss:ERROR", e);
-    }
 }
 
 td.on1MinBarHandler = (bar) => {
@@ -229,6 +214,22 @@ td.on1MinBarHandler = (bar) => {
                 }).catch(console.error);
             }
         });
+        try {
+            Object.keys(sellOrders).map(so => {
+                const order = sellOrders[so];
+                if (order.tsym === tsym[bar.Symbol] && (Number(order.realprc) - Number(bar.Low)) >= 21) {
+                    console.log("<<<<<<<<<<<<modify_order_sl_21>>>>>>>>>>>>>", so, order.placedAt, cTime, order.price, order.realprc);
+                    fv.modify_order({
+                        orderno: so,
+                        newPrice: String(bar.Close + 5),
+                        tsym: order.tsym,
+                        quantity: order.quantity
+                    }).catch(console.error);
+                }
+            });
+        } catch (e) {
+            console.log("Trail stop loss:ERROR", e);
+        }
     } catch (e) {
         console.log("Trail stop loss:ERROR", e);
     }
@@ -239,6 +240,9 @@ export default {
     fetch(request) {
         if (request.method === "POST") {
             const params = Object.fromEntries((new URLSearchParams(request.url)).entries());
+            if(params.trending && ["CE", "PE"].includes(params.trending)) {
+                trending = params.trending;
+            }
             // ws.send(JSON.stringify(params));
         }
         return new Response("Welcome!");
