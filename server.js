@@ -5,16 +5,16 @@ import Finvasia from "./scripts/fv";
 
 let preferredHours = ["10", "11", "12"];
 let modify_order_sl_intervals = [0, 5 * 60, 15 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60];
-let QUANTITY = 50;
-let PROFIT_VALUE = 2;
-let LOSS_P_VALUE = 1.75;
+let QUANTITY = 100;
+let PROFIT_VALUE = 2.25;
+let LOSS_P_VALUE = 1;
 let LOSS_AFTER_VALUE = 1;
 
 let trending = "C";
 
 const fv = new Finvasia();
 
-const tsym = {}, pendingOrders = {}, sellOrders = {};
+const tsym = {}, pendingOrders = {}, sellOrders = {}, partialOrders=[];
 
 await fv.login();
 
@@ -73,12 +73,17 @@ fv.ws.onmessage = (evt) => {
                 };
             }
         }
+	if(result.reporttype === "Fill") {
+		if(result.trantype === "B") {
+			partialOrders.push(result.norenordno);
+		}
+	}
         if (result.reporttype === "Fill" && result.status === "COMPLETE") {
             if (result.trantype === "B") {
                 fv.place_order({
                     symbol: result.tsym,
                     quantity: result.qty,
-                    price: String(Number(result.flprc) + Number(PROFIT_VALUE) + (result.tsym.includes(trending) ? 1 : 0)),
+                    price: String(Number(result.flprc) + Number(PROFIT_VALUE)),
                     trantype: "S"
                 }).catch(console.error);
                 delete pendingOrders[result.norenordno];
@@ -170,7 +175,7 @@ td.onTickHandler = (tick) => {
     // Cancel the orders, if any order placed at given seconds before && still in pending mode.
     try {
         Object.keys(pendingOrders).map(po => {
-            if (pendingOrders[po].tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 20) {
+            if (pendingOrders[po].tsym === tsym[tick.Symbol] && cTime.diff(moment(pendingOrders[po].placedAt), "seconds") > 20 && !partialOrders.includes(po)) {
                 fv.cancel_order(po).catch(console.error);
                 delete pendingOrders[po];
             }
@@ -217,11 +222,11 @@ td.on1MinBarHandler = (bar) => {
         try {
             Object.keys(sellOrders).map(so => {
                 const order = sellOrders[so];
-                if (order.tsym === tsym[bar.Symbol] && (Number(order.realprc) - Number(bar.Low)) >= 21) {
+                if (order.tsym === tsym[bar.Symbol] && (Number(order.realprc) - Number(bar.Low)) >= 15) {
                     console.log("<<<<<<<<<<<<modify_order_sl_21>>>>>>>>>>>>>", so, order.placedAt, cTime, order.price, order.realprc);
                     fv.modify_order({
                         orderno: so,
-                        newPrice: String(bar.Close + 5),
+                        newPrice: String(bar.Close + 7),
                         tsym: order.tsym,
                         quantity: order.quantity
                     }).catch(console.error);
