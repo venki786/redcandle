@@ -3,12 +3,13 @@ import moment from "moment";
 import TD from "./scripts/td";
 import Finvasia from "./scripts/fv";
 
-let preferredHours = ["10", "11", "12"];
-let modify_order_sl_intervals = [0, 5 * 60, 15 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60, 5 * 60];
+let preferredHours = {"10": ["CE", "PE"], "11": ["CE"], "12": ["CE", "PE"], "13": ["PE", "CE"], "14": ["CE", "PE"]};
+let modify_order_sl_intervals = [0, 1 * 60, 2 * 60, 2.5 * 60, 3 * 60, 4 * 60, 5 * 60, 6 * 60, 7 * 60];
 let QUANTITY = 100;
-let PROFIT_VALUE = 2.25;
-let LOSS_P_VALUE = 1;
-let LOSS_AFTER_VALUE = 1;
+
+let PROFIT_VALUE = 3.20;
+let LOSS_P_VALUE = 0.75;
+let LOSS_AFTER_VALUE = 0.75;
 
 let trending = "C";
 
@@ -83,7 +84,7 @@ fv.ws.onmessage = (evt) => {
                 fv.place_order({
                     symbol: result.tsym,
                     quantity: result.qty,
-                    price: String(Number(result.flprc) + Number(PROFIT_VALUE)),
+                    price: String(Number(result.flprc) + Number(result.tsym.includes(trending) ? PROFIT_VALUE : PROFIT_VALUE/2)),
                     trantype: "S"
                 }).catch(console.error);
                 delete pendingOrders[result.norenordno];
@@ -161,8 +162,9 @@ td.onTickHandler = (tick) => {
 
     const cHour = cTime.format("HH");
     const cMinute = cTime.format("mm");
-
-    if (indSym.Open && preferredHours.includes(cHour) && indSym.isLastCandleRed.status && (cSec === "58" || (indSym.lastSec !== "58" && cSec === "59")) && (indSym.Open > tick.LTP) && Number(cMinute) > 5) {
+	console.log(tick.Symbol, cHour, preferredHours[cHour], cSec, cMinute, tick.LTP, indSym.Open, indSym.isLastCandleRed.status);
+	const optionCall = tick.Symbol.includes("CE") ? "CE" : "PE";
+    if (indSym.Open && indSym.isLastCandleRed.status && (cSec === "58" || (indSym.lastSec !== "58" && cSec === "59")) && (indSym.Open > tick.LTP) && cMinute < 50 && cMinute > 3 && preferredHours[cHour] && preferredHours[cHour].includes(optionCall)) {
         indSym.lastSec = cSec;
         fv.place_order({
             symbol: tsym[tick.Symbol],
